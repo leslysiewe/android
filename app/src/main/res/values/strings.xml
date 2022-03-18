@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">CaptureImage</string>
+    <string name="my_images">com.example.android.fireproof</string>
+    <string name="my_pictures">CaptureImage</string>
 </resources>
