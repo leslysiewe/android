@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -27,143 +28,59 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
-    //initialize variable
-    ImageView imageView;
-    Button btOpen;
+
+    String currentPhotoPath = null;
+    private static final int IMAGE_REQUEST = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //Assign variable
-        imageView = findViewById(R.id.image_view);
-        btOpen = findViewById(R.id.bt_open);
+    }
 
-        //Request for camera permission
-        if(ContextCompat.checkSelfPermission(MainActivity.this,
-                Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
+    @SuppressLint("QueryPermissionsNeeded")
+    public void captureImage(View view) {
+        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+
+        //make sure there's a camera activity to handle the intent
+        if (cameraIntent.resolveActivity(getPackageManager()) != null)
         {
-            ActivityCompat.requestPermissions(MainActivity.this,
-                    new String[]{
-                            Manifest.permission.CAMERA
-                    },100);
-        }
+            //create the file where the photo should go
+            File imageFile = null;
 
-        //Request permission for saving images
-        ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-        ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
-
-        btOpen.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                //Open Camera
-                Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                startActivityForResult(intent, 100);
-            }
-        });
-
-        /*btSave.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                //store image to gallery
-                saveToGallery();
-            }
-        }); */
-    }
-
-    String currentPhotoPath;
-    private File createImageFile() throws IOException{
-        //create an Image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String imageFileName = "JPEG_" + timeStamp + "_";
-        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-        File image = File.createTempFile(imageFileName, /* prefix */
-                                         ".jpg",
-                                         storageDir);
-        //save a file: path for use with ACTION_VIEW intents
-        currentPhotoPath = image.getAbsolutePath();
-        return image;
-    }
-
-    private void TakePictureIntent(){
-        Intent takePictureintent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        //ensure that there's a camera activity to handle the intent
-        if (takePictureintent.resolveActivity(getPackageManager()) != null) {
-            //create the File where the photo should go
-            File photoFile = null;
             try {
-                photoFile = createImageFile();
+                imageFile = createImageFile();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            //continue only if the File was successfully created
-            if (photoFile != null) {
-                Uri photoUri;
-                photoUri = FileProvider.getUriForFile(this, getString(R.string.my_pictures),
-                        photoFile);
-                takePictureintent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
-                startActivityForResult(takePictureintent, 100);
+            //continue only if the file was succesfully created
+            if (imageFile != null){
+                Uri imageUri = FileProvider.getUriForFile(this, "com.example.android.fileprovider",imageFile);
+                cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+                startActivityForResult(cameraIntent, IMAGE_REQUEST);
             }
         }
-
     }
 
-    private void saveToGallery(){
-        Intent mediaSCanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-        File f = new File(currentPhotoPath);
-        Uri contentUri = Uri.fromFile(f);
-        mediaSCanIntent.setData(contentUri);
-        this.sendBroadcast(mediaSCanIntent);
+    public void displayImage(View view) {
+        Intent intent = new Intent(this, DisplayImage.class);
+        intent.putExtra("image_path", currentPhotoPath);
+        startActivity(intent);
+    }
+
+    //create File for the image
+    private File createImageFile() throws IOException{
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageName = "JPEG_" + timeStamp + "_";
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File imageFile = File.createTempFile(imageName, /* prefix */
+                                         ".jpg",
+                                         storageDir); //image file
+        //save a file: path for use with ACTION_VIEW intents
+        currentPhotoPath = imageFile.getAbsolutePath();
+        return imageFile;
     }
 
 
-    /* private void saveToGallery() {
-        //create a bitmap drawable and called an imageview in that bitpmap drawable
-        BitmapDrawable bitmapDrawable = (BitmapDrawable) imageView.getDrawable();
-        //collecting the bitmap drawable into a bitmap
-        Bitmap bitmap = bitmapDrawable.getBitmap();
-
-        FileOutputStream outputStream = null;
-        File file = Environment.getExternalStorageDirectory();
-        //create a folder in our storage to save our images
-        File dir = new File(file.getAbsolutePath() + "/MyImages");
-        //create the directories
-        dir.mkdir();
-
-        //Store the images into a format file
-        String filename = String.format("%d.png", System.currentTimeMillis());
-
-        File outFile = new File(dir,filename);
-        try {
-            outputStream = new FileOutputStream(outFile);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
-
-        try {
-            outputStream.flush();
-        } catch(Exception e){
-            e.printStackTrace();
-        }
-
-        try {
-            outputStream.close();
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-    }*/
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == 100) {
-            //Get Capture Image
-            Bitmap captureImage = (Bitmap) data.getExtras().get("data");
-            //set capture image to ImageView
-            imageView.setImageBitmap(captureImage);
-        }
-    }
 }
